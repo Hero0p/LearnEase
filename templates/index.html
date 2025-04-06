@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LearnEz - AI Math Tutor</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Add Fabric.js for whiteboard -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <!-- Add Chart.js for graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Add marked.js for markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --discord-dark: #36393f;
+            --discord-darker: #2f3136;
+            --discord-darkest: #202225;
+            --discord-light: #dcddde;
+            --discord-purple: #5865f2;
+            --discord-purple-hover: #4752c4;
+            --discord-green: #3ba55c;
+            --discord-red: #ed4245;
+            --discord-gray: #72767d;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--discord-darker);
+            color: var(--discord-light);
+        }
+
+        .section-content {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s ease-out;
+        }
+
+        .section-content.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .loading-spinner {
+            display: none;
+            border: 4px solid var(--discord-darker);
+            border-radius: 50%;
+            border-top: 4px solid var(--discord-purple);
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .step-card {
+            transition: all 0.3s ease;
+            background-color: var(--discord-dark) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .step-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--discord-purple);
+        }
+
+        .nav-link {
+            position: relative;
+            color: var(--discord-light);
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -2px;
+            left: 0;
+            background-color: var(--discord-purple);
+            transition: width 0.3s ease;
+        }
+
+        .nav-link:hover {
+            opacity: 1;
+        }
+
+        .nav-link:hover::after,
+        .nav-link.active::after {
+            width: 100%;
+        }
+
+        .nav-link.active {
+            opacity: 1;
+        }
+
+        #whiteboard {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.5rem;
+            touch-action: none;
+        }
+
+        .tool-button {
+            transition: all 0.3s ease;
+            background-color: var(--discord-dark);
+        }
+
+        .tool-button:hover {
+            transform: translateY(-2px);
+            background-color: var(--discord-purple);
+        }
+
+        .tool-button.active {
+            background-color: var(--discord-purple);
+            transform: translateY(2px);
+        }
+
+        .chat-message {
+            animation: fadeIn 0.3s ease-in-out;
+            background-color: var(--discord-dark) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .chat-message .message-content {
+            line-height: 1.6;
+            white-space: pre-wrap;
+            color: var(--discord-light);
+        }
+
+        .chat-message .message-content code {
+            background-color: var(--discord-darkest);
+            color: var(--discord-light);
+            padding: 0.2em 0.4em;
+            border-radius: 0.25rem;
+            font-family: monospace;
+        }
+
+        .chat-message .message-content pre {
+            background-color: var(--discord-darkest);
+            color: var(--discord-light);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 0.75rem 0;
+        }
+
+        .chat-message .message-content strong {
+            color: var(--discord-purple);
+            font-weight: 600;
+        }
+
+        .chat-message .message-content em {
+            color: var(--discord-gray);
+            font-style: italic;
+        }
+
+        input[type="text"], textarea {
+            background-color: var(--discord-darkest);
+            color: var(--discord-light);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        input[type="text"]:focus, textarea:focus {
+            border-color: var(--discord-purple);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.3);
+        }
+
+        .btn-primary {
+            background-color: var(--discord-purple);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--discord-purple-hover);
+            transform: translateY(-2px);
+        }
+
+        .graph-container {
+            background-color: var(--discord-dark);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--discord-darkest);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--discord-gray);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--discord-purple);
+        }
+
+        /* Footer styles */
+        .footer {
+            background-color: var(--discord-darkest);
+            color: var(--discord-light);
+            padding: 2rem 0;
+            margin-top: 4rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+
+        .footer-section h3 {
+            color: var(--discord-purple);
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .footer-section ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .footer-section ul li {
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-section a {
+            color: var(--discord-gray);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-section a:hover {
+            color: var(--discord-purple);
+        }
+
+        .footer-bottom {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--discord-gray);
+        }
+       
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Header with Navigation -->
+    <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg">
+        <div class="container mx-auto px-4">
+            <div class="flex items-center justify-between py-4">
+                <h1 class="text-2xl font-bold">LearnEz </h1>
+                <nav>
+                    <ul class="flex space-x-6">
+                        <li><a href="#" class="nav-link active" data-section="tutor">AI Tutor</a></li>
+                        <li><a href="#" class="nav-link" data-section="whiteboard">Whiteboard</a></li>
+                        <li><a href="#" class="nav-link" data-section="graphing">Graphing</a></li>
+                    </ul>
+                </nav>
+            </div>
+            <p class="text-center pb-4 text-blue-100">Get step-by-step explanations with interactive tools</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- AI Tutor Section -->
+        <section id="tutor-section" class="section-content">
+            <!-- Question Input Section -->
+             <!-- footer-color -->
+             <div class="max-w-2xl mx-auto rounded-lg shadow-md p-6 mb-8" style="background-color: var(--discord-darkest);">
+                <form id="questionForm" class="space-y-4">
+                    <div>
+                        <label for="question" class="block text-sm font-medium text-gray-700 mb-2">
+                            What math concept or equation would you like explained?
+                        </label>
+                        <textarea
+                            id="question"
+                            name="question"
+                            rows="3"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter your math question here..."
+                            required
+                        ></textarea>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <button
+                            type="submit"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-md transition duration-300"
+                        >
+                            SEND
+                        </button>
+                        <div id="loadingSpinner" class="loading-spinner"></div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Results Section -->
+            <div id="results" class="max-w-4xl mx-auto space-y-6" style="display: none;">
+                <div id="stepsContainer" class="grid gap-6"></div>
+                <div id="videoContainer" class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-semibold mb-4">Video Explanation</h2>
+                    <video id="explanationVideo" class="w-full rounded-lg" controls preload="metadata">
+                        <source src="" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+            </div>
+        </section>
+
+        <!-- Whiteboard Section -->
+        <section id="whiteboard-section" class="section-content hidden">
+            <div class="max-w-6xl mx-auto bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold">Interactive Whiteboard</h2>
+                    <div class="space-x-2">
+                        <button id="pen-tool" class="tool-button active bg-blue-600 text-white px-4 py-2 rounded-md">Pen</button>
+                        <button id="eraser-tool" class="tool-button bg-gray-600 text-white px-4 py-2 rounded-md">Eraser</button>
+                        <input type="range" id="brush-size" min="1" max="50" value="2" class="w-32">
+                        <input type="color" id="color-picker" value="#000000" class="h-10 w-10 rounded-md cursor-pointer">
+                        <button id="clear-board" class="tool-button bg-red-600 text-white px-4 py-2 rounded-md">Clear</button>
+                        <button id="save-board" class="tool-button bg-green-600 text-white px-4 py-2 rounded-md">Save</button>
+                    </div>
+                </div>
+                <div class="flex gap-6">
+                    <div class="whiteboard-container relative flex-1" style="height: 600px;">
+                        <canvas id="whiteboard"></canvas>
+                    </div>
+                    <div class="w-96 flex flex-col bg-gray-50 rounded-lg p-4">
+                        <div class="flex-1 overflow-y-auto mb-4 space-y-4" id="chat-messages" style="max-height: 500px;">
+                            <!-- Chat messages will appear here -->
+                        </div>
+                        <div class="border-t pt-4">
+                            <form id="chat-form" class="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    id="chat-input" 
+                                    class="flex-1 px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Ask about the whiteboard content..."
+                                >
+                                <button 
+                                    type="submit"
+                                    class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                                >
+                                    Send
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Graphing Section -->
+        <section id="graphing-section" class="section-content hidden">
+
+            <div class="max-w-6xl mx-auto bg-white rounded-lg shadow-md p-6"  style="background-color: var(--discord-darkest);">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold">Graph Simulator</h2>
+                    <div class="space-x-2 flex items-center">
+                        <input type="text" id="function-input" placeholder="Enter function (e.g., x^2, log(x), e^x)" 
+                               class="px-4 py-2 border rounded-md w-64">
+                        <button id="plot-graph" class="bg-blue-600 text-white px-4 py-2 rounded-md">Plot</button>
+                        <button id="clear-graph" class="bg-red-600 text-white px-4 py-2 rounded-md">Clear</button>
+                        <select id="graph-range" class="px-4 py-2 border rounded-md">
+                            <option value="10">Range: ±10</option>
+                            <option value="20">Range: ±20</option>
+                            <option value="50">Range: ±50</option>
+                            <option value="100">Range: ±100</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="graph-container">
+                    <canvas id="graph-canvas"></canvas>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>About LearnEz</h3>
+                <p>An AI-powered math learning platform that combines interactive tools with personalized tutoring to make mathematics accessible and engaging for everyone.</p>
+            </div>
+            <div class="footer-section">
+                <h3>Features</h3>
+                <ul>
+                    <li><a href="#" data-section="tutor">AI Math Tutor</a></li>
+                    <li><a href="#" data-section="whiteboard">Interactive Whiteboard</a></li>
+                    <li><a href="#" data-section="graphing">Graph Simulator</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Resources</h3>
+                <ul>
+                    <li><a href="#">Documentation</a></li>
+                    <li><a href="#">Tutorial Videos</a></li>
+                    <li><a href="#">Math Topics</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Connect</h3>
+                <ul>
+                    <li><a href="#">GitHub</a></li>
+                    <li><a href="#">Twitter</a></li>
+                    <li><a href="#">Discord Community</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2024 LearnEz. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Existing form submission code
+        document.getElementById('questionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const form = e.target;
+            const resultsDiv = document.getElementById('results');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const stepsContainer = document.getElementById('stepsContainer');
+            const video = document.getElementById('explanationVideo');
+            
+            loadingSpinner.style.display = 'block';
+            resultsDiv.style.display = 'none';
+            stepsContainer.innerHTML = '';
+            
+            try {
+                const formData = new FormData(form);
+                const response = await fetch('/explain', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    Object.entries(data.steps).forEach(([stepNum, step], index) => {
+                        const stepCard = document.createElement('div');
+                        stepCard.className = 'step-card bg-white rounded-lg shadow-md p-6 hover:shadow-lg';
+                        stepCard.innerHTML = `
+                            <h3 class="text-lg font-semibold text-blue-600 mb-2">Step ${index + 1}: ${step.title}</h3>
+                            <p class="text-gray-700">${step.speech}</p>
+                        `;
+                        stepsContainer.appendChild(stepCard);
+                    });
+                    
+                    const videoSource = video.querySelector('source') || document.createElement('source');
+                    videoSource.src = data.video_path;
+                    videoSource.type = 'video/mp4';
+                    if (!video.querySelector('source')) {
+                        video.appendChild(videoSource);
+                    }
+                    video.load();
+                    
+                    resultsDiv.style.display = 'block';
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('An error occurred. Please try again.');
+                console.error('Error:', error);
+            } finally {
+                loadingSpinner.style.display = 'none';
+            }
+        });
+
+        // Navigation handling
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const sectionId = link.getAttribute('data-section');
+                
+                // Update active link
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+                
+                // Hide all sections first
+                document.querySelectorAll('.section-content').forEach(section => {
+                    section.classList.remove('visible');
+                    section.classList.add('hidden');
+                });
+
+                // Show selected section with animation
+                const selectedSection = document.getElementById(`${sectionId}-section`);
+                selectedSection.classList.remove('hidden');
+                // Trigger reflow
+                void selectedSection.offsetWidth;
+                selectedSection.classList.add('visible');
+                
+                // Initialize whiteboard when whiteboard section is shown
+                if (sectionId === 'whiteboard' && !canvas) {
+                    initializeWhiteboard();
+                }
+            });
+        });
+
+        // Make initial section visible
+        document.querySelector('.section-content:not(.hidden)').classList.add('visible');
+
+        // Update footer links to use navigation
+        document.querySelectorAll('.footer-section a[data-section]').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const sectionId = link.getAttribute('data-section');
+                document.querySelector(`.nav-link[data-section="${sectionId}"]`).click();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+
+        // Whiteboard initialization and enhancement
+        let canvas;
+        
+        function initializeWhiteboard() {
+            const whiteboardEl = document.getElementById('whiteboard');
+            const whiteboardContainer = whiteboardEl.parentElement;
+            
+            // Set canvas size based on container
+            const containerWidth = whiteboardContainer.offsetWidth;
+            const containerHeight = whiteboardContainer.offsetHeight;
+            
+            // Initialize canvas with proper dimensions
+            canvas = new fabric.Canvas('whiteboard', {
+                width: containerWidth,
+                height: containerHeight,
+                backgroundColor: 'white',
+                isDrawingMode: true
+            });
+            
+            // Set initial brush
+            canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+            canvas.freeDrawingBrush.width = 2;
+            canvas.freeDrawingBrush.color = '#000000';
+        }
+
+        // Whiteboard tools enhancement
+        const brushSize = document.getElementById('brush-size');
+        const toolButtons = document.querySelectorAll('.tool-button');
+
+        toolButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                if (button.id !== 'clear-board' && button.id !== 'save-board') {
+                    toolButtons.forEach(b => b.classList.remove('active'));
+                    button.classList.add('active');
+                }
+            });
+        });
+
+        document.getElementById('pen-tool').addEventListener('click', () => {
+            if (!canvas) return;
+            canvas.isDrawingMode = true;
+            canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+            canvas.freeDrawingBrush.width = parseInt(brushSize.value);
+            canvas.freeDrawingBrush.color = document.getElementById('color-picker').value;
+        });
+
+        document.getElementById('eraser-tool').addEventListener('click', () => {
+            if (!canvas) return;
+            canvas.isDrawingMode = true;
+            canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+            canvas.freeDrawingBrush.width = parseInt(brushSize.value) * 2;
+            canvas.freeDrawingBrush.color = '#FFFFFF';
+        });
+
+        brushSize.addEventListener('input', () => {
+            if (!canvas || !canvas.freeDrawingBrush) return;
+            canvas.freeDrawingBrush.width = parseInt(brushSize.value);
+        });
+
+        document.getElementById('color-picker').addEventListener('input', (e) => {
+            if (!canvas || !canvas.freeDrawingBrush) return;
+            canvas.freeDrawingBrush.color = e.target.value;
+        });
+
+        document.getElementById('clear-board').addEventListener('click', () => {
+            if (!canvas) return;
+            canvas.clear();
+            canvas.backgroundColor = 'white';
+            canvas.renderAll();
+        });
+
+        document.getElementById('save-board').addEventListener('click', () => {
+            if (!canvas) return;
+            const dataUrl = canvas.toDataURL({
+                format: 'png',
+                quality: 1
+            });
+            const link = document.createElement('a');
+            link.download = 'whiteboard.png';
+            link.href = dataUrl;
+            link.click();
+        });
+
+        // Handle window resize for whiteboard
+        window.addEventListener('resize', () => {
+            if (!canvas) return;
+            const whiteboardContainer = document.querySelector('.whiteboard-container');
+            const containerWidth = whiteboardContainer.offsetWidth;
+            const containerHeight = whiteboardContainer.offsetHeight;
+            
+            canvas.setDimensions({
+                width: containerWidth,
+                height: containerHeight
+            });
+            canvas.renderAll();
+        });
+
+        // Enhanced Graph initialization
+        const ctx = document.getElementById('graph-canvas').getContext('2d');
+        let graphChart = null;
+
+        function evaluateFunction(func, x) {
+            // Replace mathematical expressions
+            const expression = func
+                .replace(/\^/g, '**')
+                .replace(/sin\(/g, 'Math.sin(')
+                .replace(/cos\(/g, 'Math.cos(')
+                .replace(/tan\(/g, 'Math.tan(')
+                .replace(/log\(/g, 'Math.log(')
+                .replace(/ln\(/g, 'Math.log(')
+                .replace(/e\^/g, 'Math.E**')
+                .replace(/sqrt\(/g, 'Math.sqrt(')
+                .replace(/abs\(/g, 'Math.abs(')
+                .replace(/pi/g, 'Math.PI');
+
+            try {
+                return eval(expression);
+            } catch {
+                return NaN;
+            }
+        }
+
+        function createGraph(func) {
+            const range = parseInt(document.getElementById('graph-range').value);
+            const step = range / 100;
+            
+            // Generate x values
+            const xValues = Array.from(
+                {length: 201}, 
+                (_, i) => -range + i * step
+            );
+
+            // Calculate y values
+            const yValues = xValues.map(x => {
+                try {
+                    // Replace x in the function with its value
+                    const result = evaluateFunction(func, x);
+                    return isFinite(result) ? result : null;
+                } catch {
+                    return null;
+                }
+            });
+
+            // Find y-axis range based on actual values
+            const validYValues = yValues.filter(y => y !== null);
+            const yMin = Math.min(...validYValues);
+            const yMax = Math.max(...validYValues);
+            const yRange = Math.max(Math.abs(yMin), Math.abs(yMax));
+
+            if (graphChart) {
+                graphChart.destroy();
+            }
+
+            graphChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: xValues,
+                    datasets: [{
+                        label: func,
+                        data: yValues,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'center',
+                            min: -range,
+                            max: range,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            position: 'center',
+                            min: -yRange,
+                            max: yRange,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+        }
+
+        document.getElementById('plot-graph').addEventListener('click', () => {
+            const func = document.getElementById('function-input').value
+                .toLowerCase()
+                .replace(/\s+/g, '');
+            createGraph(func);
+        });
+
+        document.getElementById('clear-graph').addEventListener('click', () => {
+            if (graphChart) {
+                graphChart.destroy();
+                graphChart = null;
+            }
+        });
+
+        // Handle Enter key for graph input
+        document.getElementById('function-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('plot-graph').click();
+            }
+        });
+
+        // Update graph when range changes
+        document.getElementById('graph-range').addEventListener('change', () => {
+            const func = document.getElementById('function-input').value;
+            if (func) {
+                createGraph(func);
+            }
+        });
+
+        // Add chat functionality
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const chatMessages = document.getElementById('chat-messages');
+
+        function formatMathExpression(text) {
+            // Format mathematical expressions
+            return text.replace(/\$([^$]+)\$/g, '<span class="math-expression">$1</span>')
+                      .replace(/\b(\d+[\+\-\*\/\^])+\d+\b/g, '<span class="math-expression">$&</span>')
+                      .replace(/\b(sin|cos|tan|log|ln)\b/g, '<span class="math-expression">$&</span>');
+        }
+
+        function formatMessage(content) {
+            // Configure marked options
+            marked.setOptions({
+                breaks: true,
+                gfm: true,
+                headerIds: false,
+                mangle: false
+            });
+
+            // Convert markdown to HTML and format math expressions
+            let formattedContent = marked.parse(content);
+            formattedContent = formatMathExpression(formattedContent);
+
+            return formattedContent;
+        }
+
+        function addMessage(content, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message p-3 rounded-lg ${isUser ? 'bg-blue-100 ml-8' : 'bg-white mr-8 shadow'}`;
+            
+            const formattedContent = isUser ? content : formatMessage(content);
+            
+            messageDiv.innerHTML = `
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${isUser ? 'bg-blue-600' : 'bg-gray-600'}">
+                        <span class="text-white text-sm">${isUser ? 'U' : 'AI'}</span>
+                    </div>
+                    <div class="flex-1 message-content">
+                        ${formattedContent}
+                    </div>
+                </div>
+            `;
+
+            // Add message to chat
+            chatMessages.appendChild(messageDiv);
+            
+            // Highlight code blocks if any
+            messageDiv.querySelectorAll('pre code').forEach(block => {
+                block.style.display = 'block';
+                block.style.fontFamily = 'monospace';
+            });
+
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const query = chatInput.value.trim();
+            if (!query || !canvas) return;
+
+            // Add user message
+            addMessage(query, true);
+            chatInput.value = '';
+
+            try {
+                // Get the whiteboard image
+                const imageData = canvas.toDataURL('image/png');
+
+                // Send to backend
+                const response = await fetch('/analyze_whiteboard', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        image: imageData,
+                        query: query
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Add AI response with enhanced formatting
+                    let formattedResponse = data.response;
+                    
+                    // Add markdown formatting if not present
+                    if (!formattedResponse.includes('**') && !formattedResponse.includes('*')) {
+                        // Add bold to important mathematical terms
+                        formattedResponse = formattedResponse.replace(
+                            /\b(equation|formula|solution|problem|result|answer|step|therefore|hence)\b/gi,
+                            '**$1**'
+                        );
+                    }
+                    
+                    addMessage(formattedResponse);
+                } else {
+                    addMessage('**Error:** ' + (data.error || 'Something went wrong'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('**Error:** Could not process your request');
+            }
+        });
+    </script>
+</body>
+</html> 
