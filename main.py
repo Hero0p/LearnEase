@@ -14,7 +14,7 @@ import time
 
 def get_math_explanation(query):
     """AI Tutor for solving math equations and explaining concepts"""
-    client = genai.Client(api_key="AIzaSyB_W9t18sgLbGXoD_zeqPaLkF8oyPPO19g")
+    client = genai.Client(api_key="YOUR_API_KEY")
     
     system_instruction = (
         "You are a Math Tutor specialized in teaching school students. "
