@@ -120,7 +120,7 @@ def text_to_speech(text, filename):
 
     headers = {
         "Content-Type": "application/json",
-        "x-api-key": "f322217059044a3f85a74bc5e9fb33e3"  # Replace with your actual API key
+        "x-api-key": "YOUR_TOPMEDIA_API_KEY_HERE"  # Replace with your actual API key
     }
 
     try:
